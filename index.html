@@ -1,0 +1,75 @@
+<!doctype html>
+
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="light" />
+<title>Micro-ondes 3D — réaliste + molécules + ondes (mode pédagogique)</title>
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{font-family:system-ui,-apple-system,"Segoe UI",Inter,Roboto;background:#cfe8ff;color:#0b0f14;text-align:center;}
+  #scene{display:block;width:100vw;height:58vh;margin:0 auto;border:3px solid #1976d2;border-radius:14px;background:linear-gradient(#8fd0ff,#ffffff);}
+  .controls{margin:10px auto 8px;display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+  button{background:#ffd74a;border:2px solid #e3b600;color:#0b0f14;padding:10px 14px;border-radius:12px;font-weight:800}
+  .edu-wrap{max-width:980px;margin:10px auto 18px;padding:0 12px}
+  .edu-toggle{display:flex;align-items:center;gap:10px;justify-content:center;margin-bottom:8px}
+  .edu-card{display:none;background:#e9f4ff;border:2px solid #b6dcff;border-radius:14px;text-align:left;color:#0b2540;margin:0 auto;box-shadow:0 6px 18px rgba(0,0,0,.08)}
+  .edu-card.on{display:block}
+  .edu-head{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid #cfe8ff}
+  .edu-title{font-weight:800}
+  .edu-body{padding:10px 12px;line-height:1.45}
+  .edu-kv{display:flex;flex-wrap:wrap;gap:10px;margin-top:6px}
+  .pill{background:white;border:1px solid #cde6ff;border-radius:999px;padding:3px 8px;font-size:12px}
+  .edu-note{font-size:12px;color:#3b5b7a;margin-top:6px}
+</style>
+</head>
+<body>
+  <h1>Micro‑ondes 3D — assiette réaliste + molécules + ondes</h1>
+  <p>Visualisation complète du <b>magnétron</b>, des <b>ondes électromagnétiques</b>, de l’<b>assiette tournante</b>, de la <b>vapeur</b>, du <b>thermomètre</b> et de l’<b>agitation des molécules d’eau</b>.</p><canvas id="scene"></canvas>
+
+  <div class="controls">
+    <button id="start">▶️ Lancer</button>
+    <button id="pause">⏸️ Pause</button>
+    <button id="reset">🔄 Réinitialiser</button>
+  </div>  <div class="edu-wrap">
+    <div class="edu-toggle">
+      <input type="checkbox" id="eduToggle" />
+      <label for="eduToggle"><b>Activer le mode pédagogique</b></label>
+    </div>
+    <div id="eduCard" class="edu-card">
+      <div class="edu-head"><div class="edu-title">Ce qui se passe en ce moment</div><div id="eduTemp" class="pill">Température: 25 °C</div></div>
+      <div class="edu-body">
+        <div id="eduText">Prêt. L’aliment est froid et les ondes ne sont pas encore actives.</div>
+        <div class="edu-kv">
+          <span id="kvAgitation" class="pill">Agitation: lente</span>
+          <span id="kvState" class="pill">État: repos</span>
+          <span id="kvTip" class="pill">Astuce: lancer pour chauffer</span>
+        </div>
+        <div class="edu-note">Les <b>ondes électromagnétiques</b> (en bleu) mettent en vibration les <b>molécules d’eau</b>. Cette agitation produit de la chaleur — c’est le <b>chauffage diélectrique</b>.</div>
+      </div>
+    </div>
+  </div><script>
+const canvas=document.getElementById('scene');const ctx=canvas.getContext('2d');let W=0,H=0,DPR=1;let running=true,cooling=false,angle=0,tempC=25;const AMBIENT=25,MAX_TEMP=150;let steam=[],molecules=[];let cavX=0,cavY=0,cavW=0,cavH=0;let foodCX=0,foodCY=0,foodRX=0,foodRY=0;const MOL_COUNT=120;
+const eduToggle=document.getElementById('eduToggle');const eduCard=document.getElementById('eduCard');const eduTemp=document.getElementById('eduTemp');const kvAgitation=document.getElementById('kvAgitation');const kvState=document.getElementById('kvState');const kvTip=document.getElementById('kvTip');
+function resize(){DPR=Math.max(1,window.devicePixelRatio||1);W=Math.max(320,Math.floor(window.innerWidth));H=Math.max(360,Math.floor(window.innerHeight*0.58));canvas.width=W*DPR;canvas.height=H*DPR;ctx.setTransform(DPR,0,0,DPR,0,0);const mX=Math.max(12,W*0.06),mY=Math.max(10,H*0.08);cavX=mX;cavY=mY;cavW=W-2*mX;cavH=H-2*mY;const plateCX=cavX+cavW/2;const plateCY=cavY+cavH*0.72;const plateR=Math.min(cavW*0.35,220);foodCX=plateCX;foodCY=plateCY-Math.min(54,cavH*0.12)-6;foodRX=Math.min(plateR*0.36,86);foodRY=foodRX*0.78;seedMolecules();}
+function drawEllipse(x,y,rx,ry){ctx.save();ctx.translate(x,y);ctx.scale(1,ry/rx);ctx.beginPath();ctx.arc(0,0,rx,0,Math.PI*2);ctx.restore();}
+function bg(){const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#8fd0ff');g.addColorStop(1,'#ffffff');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);}
+function drawCavity(){ctx.fillStyle='#18324f';ctx.fillRect(cavX-8,cavY-8,cavW+16,cavH+16);ctx.fillStyle='#0f253b';ctx.fillRect(cavX,cavY,cavW,cavH);const doorW=Math.min(24,cavW*0.06);const doorX=cavX+cavW-doorW-4;for(let i=0;i<doorW;i+=3){ctx.fillStyle=i%2?'rgba(200,230,255,0.10)':'rgba(120,180,220,0.12)';ctx.fillRect(doorX+i,cavY+8,2,cavH-16);}const gw=Math.min(28,cavW*0.06),gh=Math.max(40,cavH*0.5);const gx=cavX+6,gy=cavY+(cavH-gh)/2;ctx.fillStyle='#1a3a5a';ctx.fillRect(gx,gy,gw,gh);ctx.fillStyle='#cfe7ff';ctx.font='12px system-ui';ctx.fillText('Magnétron',gx+2,gy-6);}
+function drawWaves(t){const lines=6;for(let i=0;i<lines;i++){const base=cavY+cavH*0.25+(i/(lines-1))*cavH*0.5;ctx.beginPath();for(let x=cavX+40;x<cavX+cavW-40;x+=5){const k=0.035;const amp=8+8*Math.sin(i*0.8+t*0.9);const y=base+Math.sin((x*0.9-t*80)*k)*amp;if(x===cavX+40)ctx.moveTo(x,y);else ctx.lineTo(x,y);}ctx.strokeStyle='rgba(74,168,255,0.42)';ctx.lineWidth=2;ctx.stroke();}}
+function steamUp(){for(let i=0;i<2;i++)steam.push({x:foodCX+(Math.random()-0.5)*foodRX*1.2,y:foodCY+(Math.random()-0.2)*foodRY*0.6,vx:(Math.random()-0.5)*.6,vy:-(.6+Math.random()*1.1),a:.9,s:5+Math.random()*4});}
+function steamDraw(){steam.forEach(p=>{ctx.globalAlpha=p.a;drawEllipse(p.x,p.y,p.s,p.s*0.7);ctx.fillStyle='#fff';ctx.fill();ctx.globalAlpha=1;});}
+function steamStep(){steam.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.a-=.006;});steam=steam.filter(p=>p.a>0);}
+function inFood(x,y){const nx=(x-foodCX)/foodRX;const ny=(y-foodCY)/foodRY;return nx*nx+ny*ny<=1;}
+function seedMolecules(){molecules.length=0;for(let i=0;i<MOL_COUNT;i++){let x=0,y=0,tries=0;do{x=foodCX+(Math.random()*2-1)*foodRX;y=foodCY+(Math.random()*2-1)*foodRY;tries++;}while(!inFood(x,y)&&tries<50);molecules.push({x,y,theta:Math.random()*Math.PI*2,omega:0});}}
+function fieldLocal(x,y,t){const kx=2*Math.PI/(foodRX*2.2);const ky=2*Math.PI/(foodRY*2.6);return Math.sin(kx*(x-foodCX)+t)+Math.sin(ky*(y-foodCY)-t*1.1);}
+function updateMolecules(t){const base=5+26*(tempC-AMBIENT)/(MAX_TEMP-AMBIENT);for(const m of molecules){const f=fieldLocal(m.x,m.y,t);m.omega=base*Math.abs(f*0.8+0.2);m.theta+=m.omega*0.016;}}
+function drawMolecules(){const len=Math.max(6,Math.min(12,foodRX*0.08));for(const m of molecules){const x1=m.x+Math.cos(m.theta)*len;const y1=m.y+Math.sin(m.theta)*len;const x2=m.x-Math.cos(m.theta)*len;const y2=m.y-Math.sin(m.theta)*len;ctx.strokeStyle='rgba(122,214,255,0.85)';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();drawEllipse(x1,y1,2.3,2.3);ctx.fillStyle='#6ad0ff';ctx.fill();drawEllipse(x2,y2,2.3,2.3);ctx.fill();}}
+function plateAndFood(){const cx=cavX+cavW/2;const cy=cavY+cavH*0.72;const rx=Math.min(cavW*0.35,220);const ry=rx/4.2;drawEllipse(cx,cy+26,rx*1.08,rx/6);ctx.fillStyle='rgba(0,0,0,0.22)';ctx.fill();const grd=ctx.createRadialGradient(cx,cy,40,cx,cy,rx);grd.addColorStop(0,'#fff7b0');grd.addColorStop(0.55,'#ffd74a');grd.addColorStop(1,'#f4c425');drawEllipse(cx,cy,rx,ry);ctx.fillStyle=grd;ctx.fill();ctx.lineWidth=6;ctx.strokeStyle='#e3b600';ctx.stroke();ctx.save();ctx.translate(cx,cy);ctx.rotate(angle*1.6);drawEllipse(0,0,rx*0.78,ry*0.95);const gloss=ctx.createLinearGradient(cx-rx,0,cx+rx,0);gloss.addColorStop(0,'rgba(120,200,255,0)');gloss.addColorStop(0.48,'rgba(120,200,255,0.28)');gloss.addColorStop(0.52,'rgba(120,200,255,0.45)');gloss.addColorStop(1,'rgba(120,200,255,0)');ctx.strokeStyle=gloss;ctx.lineWidth=8;ctx.stroke();ctx.restore();const fg=ctx.createRadialGradient(foodCX,foodCY,foodRX*0.2,foodCX,foodCY,foodRX);const heat=Math.min(1,(tempC-40)/110);const baseCol=`rgba(${Math.floor(220+20*heat)}, ${Math.floor(120+40*heat)}, ${Math.floor(60)}, 0.95)`;const edgeCol=`rgba(200,95,50,0.95)`;fg.addColorStop(0,baseCol);fg.addColorStop(1,edgeCol);drawEllipse(foodCX,foodCY,foodRX,foodRY);ctx.fillStyle=fg;ctx.fill();drawEllipse(foodCX-foodRX*0.25,foodCY-foodRY*0.25,foodRX*0.28,foodRY*0.22);ctx.fillStyle='rgba(255,255,255,0.25)';ctx.fill();}
+function thermo(){const w=Math.min(170,W*0.45),h=56,x=cavX+cavW-w-10,y=cavY+8;ctx.fillStyle='rgba(255,255,255,.08)';ctx.fillRect(x,y,w,h);ctx.strokeStyle='rgba(255,255,255,.25)';ctx.strokeRect(x,y,w,h);const ratio=Math.min(1,Math.max(0,(tempC-AMBIENT)/(MAX_TEMP-AMBIENT)));ctx.fillStyle='#4ab3ff';ctx.fillRect(x+12,y+34,(w-24)*ratio,10);ctx.fillStyle='rgba(255,255,255,.18)';ctx.fillRect(x+12+(w-24)*ratio,y+34,(w-24)*(1-ratio),10);ctx.fillStyle='#e6f4ff';ctx.font='14px system-ui';ctx.fillText('Température',x+14,y+18);ctx.font='bold 16px system-ui';ctx.fillStyle='#8fd0ff';const t=`${Math.round(tempC)} °C`;ctx.fillText(t,x+w-14-ctx.measureText(t).width,y+18);}
+function updateEdu(){if(!eduCard)return;eduTemp.textContent=`Température: ${Math.round(tempC)} °C`;let agi='lente',state='repos',tip='Astuce: lancer pour chauffer';if(running&&tempC<50){agi='modérée';state='chauffe douce';tip='Les ondes débutent la rotation des molécules';}if(running&&tempC>=50&&tempC<100){agi='rapide';state='chauffe';tip='Chaleur uniforme et vapeur visible';}if(running&&tempC>=100){agi='très rapide';state='très chaud';tip='Molécules en forte agitation';}if(cooling){state='refroidissement';tip='Température en baisse';}kvAgitation.textContent=`Agitation: ${agi}`;kvState.textContent=`État: ${state}`;kvTip.textContent=tip;}
+function frame(){if(running&&tempC<MAX_TEMP)tempC+=0.35;if(cooling&&tempC>AMBIENT){tempC-=0.6;if(tempC<=AMBIENT){tempC=AMBIENT;cooling=false;}}if(running){angle+=0.03;if(tempC>AMBIENT+5&&tempC<MAX_TEMP+1)steamUp();}steamStep();updateMolecules(performance.now()*0.002);bg();drawCavity();drawWaves(performance.now()*0.001);plateAndFood();drawMolecules();steamDraw();thermo();updateEdu();requestAnimationFrame(frame);}
+start.onclick=()=>{running=true;cooling=false;};pause.onclick=()=>{running=false;};reset.onclick=()=>{running=false;cooling=true;};eduToggle.onchange=()=>{eduCard.classList.toggle('on',eduToggle.checked);};window.onload=()=>{resize();frame();};window.onresize=()=>{resize();};
+</script></body>
+</html>
